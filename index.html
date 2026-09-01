@@ -13,7 +13,8 @@
   --ground:#F5F7F3; --surface:#FFFFFF; --surface-2:#EDF1EA; --line:#D8DFD4;
   --ink:#252B27; --ink-2:#5A655D; --ink-3:#8B958D;
   --accent:#2F6E58; --accent-soft:#DEEBE3; --accent-ink:#1E4A3B;
-  --booked:#C08A2D; --booked-soft:#F3E8D2; --booked-ink:#7A5514;
+  --booked:#D2801E; --booked-soft:#F8E7D0; --booked-ink:#8A5510;
+  --bhold:#C9A227; --bhold-soft:#F6EEC9; --bhold-ink:#7D651A;
   --out:#AE5230; --out-soft:#F4E2D9; --out-ink:#7E3A20;
   --occ-soft:#E4EEF0; --occ-ink:#2C5B63;
   --warn:#B3452C;
@@ -24,7 +25,8 @@
     --ground:#161B18; --surface:#1F2621; --surface-2:#28312B; --line:#38423B;
     --ink:#E8ECE8; --ink-2:#A9B4AB; --ink-3:#77826F;
     --accent:#5CA98D; --accent-soft:#24382F; --accent-ink:#9FD4BD;
-    --booked:#D9A64C; --booked-soft:#3A3220; --booked-ink:#E8C685;
+    --booked:#E2984A; --booked-soft:#3D2F1B; --booked-ink:#F0C186;
+    --bhold:#DDC353; --bhold-soft:#3A351A; --bhold-ink:#EBD98A;
     --out:#D07A54; --out-soft:#3D2A21; --out-ink:#E8A783;
     --occ-soft:#233539; --occ-ink:#8FC0C9;
     --warn:#E07A5F;
@@ -84,7 +86,11 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:1
 .p-in{background:var(--accent-soft);color:var(--accent-ink)}
 .p-out{background:var(--out-soft);color:var(--out-ink)}
 .p-occ{background:var(--occ-soft);color:var(--occ-ink)}
-.p-book{background:var(--booked-soft);color:var(--booked-ink)}
+.p-bpaid{background:var(--booked);color:#fff}
+.p-bhold{background:var(--bhold-soft);color:var(--bhold-ink);border:1px solid var(--bhold)}
+.day.b-paid{background:var(--booked-soft)}
+.day.b-hold{background:var(--bhold-soft)}
+.pchip{display:inline-flex;width:14px;height:14px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;align-items:center;justify-content:center;vertical-align:-2px;flex:none;font-family:"Instrument Sans",sans-serif}
 .p-note{color:var(--ink-3);font-size:10.5px}
 .moneyline{margin-top:auto;display:flex;gap:6px;font-size:10.5px;font-weight:500}
 .m-in{color:var(--accent)}
@@ -192,7 +198,8 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
     <div class="legend">
       <span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Check-in / stay</span>
       <span><i class="sw" style="background:var(--out-soft);border:1px solid var(--out)"></i>Check-out</span>
-      <span><i class="sw" style="background:var(--booked-soft);border:1px solid var(--booked)"></i>Booked ahead</span>
+      <span><i class="sw" style="background:var(--booked)"></i>Booked · fee paid</span>
+      <span><i class="sw" style="background:var(--bhold-soft);border:1px solid var(--bhold)"></i>Booked · fee not paid</span>
       <span><i class="sw" style="box-shadow:inset 0 0 0 2px var(--warn)"></i>Needs an update</span>
     </div>
   </div>
@@ -265,6 +272,7 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
     <div class="srow one">
       <div><label class="f" for="bkBy">Booked through</label><input id="bkBy" list="teamList" placeholder="Who took the booking"></div>
     </div>
+    <p style="margin:2px 0 0;color:var(--ink-3);font-size:12px">Enter the fee → day shows <b style="color:var(--booked-ink)">orange (fee paid)</b>. Leave it 0 → <b style="color:var(--bhold-ink)">yellow (just booked)</b>.</p>
   </div>
 
   <div class="sec">
@@ -344,7 +352,7 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
 (function(){
 "use strict";
 var OWNER_EMAIL="info.creedmotions@gmail.com";
-var DEFAULT_ROSTER=["mukama","ahereza","swimming"];
+var DEFAULT_ROSTER=["mukama","ahereza","swimming","willy"];
 firebase.initializeApp({
   apiKey:"AIzaSyAn2Ryt1fH55zNj6tYKjBG0Ts5V4YiosfU",
   authDomain:"webaura-ba777.firebaseapp.com",
@@ -356,7 +364,7 @@ firebase.initializeApp({
 var auth=firebase.auth(), fs=firebase.firestore();
 var user=null, unsubs=[], isAdmin=false, memberName="", pendingName=null;
 var days={}, payments={}, expenses={};
-var settings={currency:"UGX", team:["Mukama","Ahereza","Swimming"]};
+var settings={currency:"UGX", team:["Mukama","Ahereza","Swimming","Willy"]};
 var rosterNames=[];
 var view=new Date(); view.setDate(1);
 var openDate=null;
@@ -369,6 +377,17 @@ function todayKey(){return key(new Date())}
 function fmt(n){try{return settings.currency+" "+new Intl.NumberFormat().format(Math.round(n))}catch(e){return settings.currency+" "+n}}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function toast(msg){var t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove("show")},2400)}
+
+/* Small colored initial badge per person: W = willy, A = ahereza, S = swimming… */
+var PCOLORS=["#5B6ECF","#B4552D","#2C7A8C","#7E4FA6","#A63D68","#2F6E58"];
+function personChip(name){
+  var n=String(name==null?"":name).trim();
+  if(!n)return "";
+  var team=settings.team||[], idx=-1;
+  for(var i=0;i<team.length;i++){if(String(team[i]).toLowerCase()===n.toLowerCase()){idx=i;break}}
+  if(idx<0){var h=0;for(var j=0;j<n.length;j++)h=(h*31+n.charCodeAt(j))>>>0;idx=h%PCOLORS.length}
+  return '<span class="pchip" style="background:'+PCOLORS[idx%PCOLORS.length]+'" title="'+esc(n)+'">'+esc(n.charAt(0).toUpperCase())+'</span>';
+}
 
 var recorder="";
 try{recorder=localStorage.getItem("nh-recorder")||""}catch(e){}
@@ -549,10 +568,16 @@ function render(){
       if(d.booking&&d.booking.fee)dayPay+=(+d.booking.fee||0);
       if(!hasAnything&&dayPay===0&&dayExp===0&&inMonth&&k<tk)cell.classList.add("needs");
       var h='<span class="dnum">'+cur.getDate()+'</span>';
-      if(d.checkIn)h+='<span class="pill p-in">↓ '+esc(d.checkIn.time||"")+' '+esc(d.checkIn.guest||"guest")+'</span>';
-      if(d.checkOut)h+='<span class="pill p-out">↑ '+esc(d.checkOut.time||"")+' '+esc(d.checkOut.guest||"guest")+'</span>';
+      if(d.checkIn)h+='<span class="pill p-in">↓ '+esc(d.checkIn.time||"")+' '+esc(d.checkIn.guest||"guest")+' '+personChip(d.checkIn.by)+'</span>';
+      if(d.checkOut)h+='<span class="pill p-out">↑ '+esc(d.checkOut.time||"")+' '+esc(d.checkOut.guest||"guest")+' '+personChip(d.checkOut.by)+'</span>';
       if(d.occupied&&!d.checkIn&&!d.checkOut)h+='<span class="pill p-occ">Guest staying</span>';
-      if(d.booking)h+='<span class="pill p-book">Booked · '+esc(d.booking.guest||"")+'</span>';
+      if(d.booking){
+        var bkPaid=(+d.booking.fee||0)>0;
+        cell.classList.add(bkPaid?"b-paid":"b-hold");
+        h+=bkPaid
+          ?'<span class="pill p-bpaid">Booked ✓ '+shortAmt(+d.booking.fee)+' '+esc(d.booking.guest||"")+' '+personChip(d.booking.by)+'</span>'
+          :'<span class="pill p-bhold">Booked · fee not paid '+personChip(d.booking.by)+'</span>';
+      }
       if(d.note&&d.note.trim()&&!d.checkIn&&!d.checkOut&&!d.booking)h+='<span class="p-note">'+esc(d.note.trim().slice(0,26))+'</span>';
       if(dayPay||dayExp){h+='<span class="moneyline mono">'+(dayPay?'<span class="m-in">+'+shortAmt(dayPay)+'</span>':'')+(dayExp?'<span class="m-out">−'+shortAmt(dayExp)+'</span>':'')+'</span>'}
       cell.innerHTML=h;
@@ -637,10 +662,10 @@ function setToggle(id,on){var b=$(id);b.setAttribute("aria-pressed",on?"true":"f
 function renderEntryLists(){
   var pl="",el="";
   Object.keys(payments).forEach(function(id){var p=payments[id];if(p.date!==openDate)return;
-    pl+='<div class="entry"><span>'+esc(p.kind||"Payment")+(p.note?(' · '+esc(p.note)):'')+' <span style="color:var(--ink-3)">('+esc(p.by||"?")+')</span></span><span class="mono" style="color:var(--accent)">+'+fmt(+p.amount||0)+'</span><button class="del" data-k="nh_payments" data-id="'+esc(id)+'" aria-label="Delete payment">✕</button></div>'});
+    pl+='<div class="entry"><span>'+esc(p.kind||"Payment")+(p.note?(' · '+esc(p.note)):'')+' '+personChip(p.by)+' <span style="color:var(--ink-3)">'+esc(p.by||"?")+'</span></span><span class="mono" style="color:var(--accent)">+'+fmt(+p.amount||0)+'</span><button class="del" data-k="nh_payments" data-id="'+esc(id)+'" aria-label="Delete payment">✕</button></div>'});
   Object.keys(expenses).forEach(function(id){var e=expenses[id];if(e.date!==openDate)return;
     var tot=(+e.amount||0)+(+e.fee||0);
-    el+='<div class="entry"><span>'+esc(e.item||"Expense")+(e.sentTo?(' → <span class="mono">'+esc(e.sentTo)+'</span>'):'')+(e.fee?' <span style="color:var(--ink-3)">(charge '+fmt(+e.fee)+')</span>':'')+' <span style="color:var(--ink-3)">('+esc(e.by||"?")+')</span></span><span class="mono" style="color:var(--out)">−'+fmt(tot)+'</span><button class="del" data-k="nh_expenses" data-id="'+esc(id)+'" aria-label="Delete expense">✕</button></div>'});
+    el+='<div class="entry"><span>'+esc(e.item||"Expense")+(e.sentTo?(' → <span class="mono">'+esc(e.sentTo)+'</span>'):'')+(e.fee?' <span style="color:var(--ink-3)">(charge '+fmt(+e.fee)+')</span>':'')+' '+personChip(e.by)+' <span style="color:var(--ink-3)">'+esc(e.by||"?")+'</span></span><span class="mono" style="color:var(--out)">−'+fmt(tot)+'</span><button class="del" data-k="nh_expenses" data-id="'+esc(id)+'" aria-label="Delete expense">✕</button></div>'});
   $("payList").innerHTML=pl;$("expList").innerHTML=el;
   Array.prototype.forEach.call(document.querySelectorAll(".del"),function(b){
     b.addEventListener("click",function(){
