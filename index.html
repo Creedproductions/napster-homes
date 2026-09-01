@@ -153,10 +153,18 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
 <div class="gate" id="gate">
   <div class="card">
     <div class="wordmark">Napster <em>Homes</em></div>
-    <p id="gateMsg">The private logbook for the Napster Homes Airbnb.<br>Sign in with the Google account the team added.</p>
+    <p id="gateMsg">The private logbook for the Napster Homes Airbnb.</p>
+    <div style="text-align:left;margin-top:14px">
+      <label class="f" for="teamName">Team name</label>
+      <input id="teamName" placeholder="e.g. mukama" autocapitalize="none" autocomplete="username" class="mono">
+    </div>
+    <button class="addbtn" id="teamGo" style="margin-top:12px">Enter the logbook</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--ink-3);font-size:12px">
+      <span style="flex:1;height:1px;background:var(--line)"></span>or<span style="flex:1;height:1px;background:var(--line)"></span>
+    </div>
     <button class="gbtn" id="gSignIn">
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Sign in with Google
+      Admin sign-in with Google
     </button>
     <div class="err" id="gateErr"></div>
   </div>
@@ -319,9 +327,9 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
   <input id="teamInput" placeholder="Mike, Sarah, Brian">
   <div id="ownerBox" hidden>
     <div style="height:10px"></div>
-    <label class="f" for="allowInput">Allowed Google emails (owner only, comma-separated)</label>
-    <input id="allowInput" placeholder="partner1@gmail.com, partner2@gmail.com">
-    <p style="margin:6px 0 0;color:var(--ink-3);font-size:12px">Only these Google accounts (plus you) can open the logbook.</p>
+    <label class="f" for="rosterInput">Team login names (admin only, comma-separated)</label>
+    <input id="rosterInput" class="mono" placeholder="mukama, ahereza, swimming">
+    <p style="margin:6px 0 0;color:var(--ink-3);font-size:12px">These are the names people type to enter the logbook. Removing a name locks that person out immediately.</p>
   </div>
   <div class="savebar"><button class="addbtn" id="setSave">Save settings</button></div>
 </dialog>
@@ -335,7 +343,8 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
 <script>
 (function(){
 "use strict";
-var OWNER_EMAIL="napsterphantom@gmail.com";
+var OWNER_EMAIL="info.creedmotions@gmail.com";
+var DEFAULT_ROSTER=["mukama","ahereza","swimming"];
 firebase.initializeApp({
   apiKey:"AIzaSyAn2Ryt1fH55zNj6tYKjBG0Ts5V4YiosfU",
   authDomain:"webaura-ba777.firebaseapp.com",
@@ -345,10 +354,10 @@ firebase.initializeApp({
   appId:"1:209314093168:web:bcbd2fc9d6c36f87d17cb5"
 });
 var auth=firebase.auth(), fs=firebase.firestore();
-var user=null, unsubs=[];
+var user=null, unsubs=[], isAdmin=false, memberName="", pendingName=null;
 var days={}, payments={}, expenses={};
-var settings={currency:"UGX", team:["Mike"]};
-var allowEmails=[];
+var settings={currency:"UGX", team:["Mukama","Ahereza","Swimming"]};
+var rosterNames=[];
 var view=new Date(); view.setDate(1);
 var openDate=null;
 var $=function(id){return document.getElementById(id)};
@@ -367,30 +376,96 @@ function setRecorder(n){recorder=n;try{localStorage.setItem("nh-recorder",n)}cat
 
 /* ── auth ─────────────────────────────────────────────────────── */
 function gateError(html){var e=$("gateErr");e.innerHTML=html;e.classList.add("show")}
+function showGate(){$("app").hidden=true;$("gate").hidden=false}
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
+
 $("gSignIn").addEventListener("click",function(){
   $("gateErr").classList.remove("show");
   var p=new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(p).catch(function(err){
+  var go=function(){auth.signInWithPopup(p).catch(function(err){
     if(err&&(err.code==="auth/popup-blocked"||err.code==="auth/cancelled-popup-request")){auth.signInWithRedirect(p);return}
     if(err&&err.code==="auth/unauthorized-domain"){gateError("This website’s address isn’t authorized in Firebase yet. Add <span class='mono small'>"+esc(location.hostname)+"</span> under Authentication → Settings → Authorized domains.");return}
     gateError("Couldn’t sign in: "+esc(err&&err.message||err));
-  });
+  })};
+  // Drop any anonymous session first so the admin account takes over cleanly.
+  if(auth.currentUser&&auth.currentUser.isAnonymous){auth.signOut().then(go)}else{go()}
 });
-$("outBtn").addEventListener("click",function(){auth.signOut()});
+
+$("teamGo").addEventListener("click",function(){
+  $("gateErr").classList.remove("show");
+  var name=$("teamName").value.trim().toLowerCase();
+  if(!name){toast("Type your team name first");return}
+  pendingName=name;
+  if(auth.currentUser&&auth.currentUser.isAnonymous){claimName(auth.currentUser,name)}
+  else if(auth.currentUser){auth.signOut()} // onAuthStateChanged will sign in anonymously via pendingName
+  else{auth.signInAnonymously().catch(function(err){
+    if(err&&err.code==="auth/operation-not-allowed"){gateError("Anonymous sign-in is turned off for this Firebase project. Enable it under Authentication → Sign-in method → Anonymous.")}
+    else gateError("Couldn’t connect: "+esc(err&&err.message||err));
+  })}
+});
+$("teamName").addEventListener("keydown",function(e){if(e.key==="Enter")$("teamGo").click()});
+
+function claimName(u,name){
+  fs.doc("nh_members/"+u.uid).set({name:name,at:new Date().toISOString()}).then(function(){
+    memberName=name;isAdmin=false;pendingName=null;
+    setRecorder(cap(name));
+    startListeners();
+  },function(err){
+    pendingName=null;
+    if(err&&err.code==="permission-denied")gateError("“"+esc(name)+"” isn’t on the team list — ask the admin to add it in Settings, or check the spelling.");
+    else gateError("Couldn’t enter: "+esc(err&&err.message||err));
+  });
+}
+
+$("outBtn").addEventListener("click",function(){
+  var u=auth.currentUser;
+  var done=function(){auth.signOut()};
+  // Leaving on a name login also releases this device's claim.
+  if(u&&u.isAnonymous){fs.doc("nh_members/"+u.uid).delete().then(done,done)}else{done()}
+});
 
 auth.onAuthStateChanged(function(u){
-  user=u;
+  user=u;isAdmin=false;memberName="";
   unsubs.forEach(function(f){try{f()}catch(e){}});unsubs=[];
-  if(!u){$("app").hidden=true;$("gate").hidden=false;return}
-  if(!recorder&&u.displayName)setRecorder(u.displayName.split(" ")[0]);
-  else setRecorder(recorder);
-  startListeners();
+  if(!u){
+    showGate();
+    if(pendingName){auth.signInAnonymously().catch(function(err){gateError("Couldn’t connect: "+esc(err&&err.message||err))})}
+    return;
+  }
+  if(u.isAnonymous){
+    fs.doc("nh_members/"+u.uid).get().then(function(snap){
+      if(snap.exists&&snap.data().name){memberName=snap.data().name;setRecorder(recorder||cap(memberName));startListeners()}
+      else if(pendingName){claimName(u,pendingName)}
+      else showGate();
+    },function(){ if(pendingName){claimName(u,pendingName)} else showGate() });
+    return;
+  }
+  if((u.email||"").toLowerCase()===OWNER_EMAIL){
+    isAdmin=true;
+    if(!recorder)setRecorder((u.displayName||"Admin").split(" ")[0]);
+    seedIfEmpty();
+    startListeners();
+  }else{
+    auth.signOut();
+    gateError("<span class='mono small'>"+esc(u.email||"")+"</span> isn’t the admin account.<br>Use your team name above instead, or sign in with the admin Google account.");
+  }
 });
+
+// First admin visit: create the roster and settings so teammates can enter.
+function seedIfEmpty(){
+  fs.doc("nh_meta/roster").get().then(function(s){
+    if(!s.exists)fs.doc("nh_meta/roster").set({names:DEFAULT_ROSTER}).catch(function(){});
+  }).catch(function(){});
+  fs.doc("nh_meta/settings").get().then(function(s){
+    if(!s.exists)fs.doc("nh_meta/settings").set({currency:"UGX",team:DEFAULT_ROSTER.map(cap)}).catch(function(){});
+  }).catch(function(){});
+}
 
 function accessDenied(){
   unsubs.forEach(function(f){try{f()}catch(e){}});unsubs=[];
-  $("app").hidden=true;$("gate").hidden=false;
-  gateError("Signed in as <span class='mono small'>"+esc(user&&user.email||"")+"</span> — this account isn’t on the team list yet.<br>Ask Mike to add it in Settings, then reload.");
+  showGate();
+  if(user&&user.isAnonymous)gateError("This device’s access isn’t active any more — the name may have been removed from the team list. Enter a valid team name to continue.");
+  else gateError("Signed in as <span class='mono small'>"+esc(user&&user.email||"")+"</span> — this account can’t open the logbook. If the rules were just updated in Firebase, wait a minute and try again.");
 }
 
 /* ── live data ────────────────────────────────────────────────── */
@@ -412,9 +487,9 @@ function startListeners(){
       if(s.exists){var v=s.data();settings.currency=v.currency||settings.currency;settings.team=v.team||settings.team}
       applySettings();
     },denied));
-    if(user.email===OWNER_EMAIL){
-      unsubs.push(fs.doc("nh_meta/allowlist").onSnapshot(function(s){
-        allowEmails=(s.exists&&s.data().emails)||[];
+    if(isAdmin){
+      unsubs.push(fs.doc("nh_meta/roster").onSnapshot(function(s){
+        rosterNames=(s.exists&&s.data().names)||[];
       },function(){}));
     }
     if(!recorder){setTimeout(function(){$("whoDlg").showModal()},600)}
@@ -565,14 +640,14 @@ $("payAdd").addEventListener("click",function(){
   if(needName())return;
   var amt=parseFloat($("payAmt").value);
   if(!amt||amt<=0){toast("Enter the amount received");return}
-  fs.collection("nh_payments").add({date:openDate,amount:amt,kind:$("payKind").value,by:$("payBy").value||recorder,note:$("payNote").value||"",at:new Date().toISOString(),byEmail:user.email||""})
+  fs.collection("nh_payments").add({date:openDate,amount:amt,kind:$("payKind").value,by:$("payBy").value||recorder,note:$("payNote").value||"",at:new Date().toISOString(),byEmail:user.email||("team:"+memberName)})
     .then(function(){$("payAmt").value="";$("payNote").value="";toast("Money received recorded")},function(){toast("Couldn’t save — check your connection")});
 });
 $("expAdd").addEventListener("click",function(){
   if(needName())return;
   var amt=parseFloat($("expAmt").value);
   if(!amt||amt<=0){toast("Enter the amount spent");return}
-  fs.collection("nh_expenses").add({date:openDate,item:$("expItem").value||"Expense",amount:amt,fee:parseFloat($("expFee").value)||0,sentTo:$("expTo").value.trim(),by:$("expBy").value||recorder,at:new Date().toISOString(),byEmail:user.email||""})
+  fs.collection("nh_expenses").add({date:openDate,item:$("expItem").value||"Expense",amount:amt,fee:parseFloat($("expFee").value)||0,sentTo:$("expTo").value.trim(),by:$("expBy").value||recorder,at:new Date().toISOString(),byEmail:user.email||("team:"+memberName)})
     .then(function(){["expItem","expAmt","expFee","expTo"].forEach(function(id){$(id).value=""});toast("Spending recorded")},function(){toast("Couldn’t save — check your connection")});
 });
 
@@ -595,18 +670,17 @@ $("whoSave").addEventListener("click",function(){var v=$("whoInput").value.trim(
 $("setBtn").addEventListener("click",function(){
   $("curInput").value=settings.currency;
   $("teamInput").value=(settings.team||[]).join(", ");
-  var isOwner=user&&user.email===OWNER_EMAIL;
-  $("ownerBox").hidden=!isOwner;
-  if(isOwner)$("allowInput").value=allowEmails.join(", ");
+  $("ownerBox").hidden=!isAdmin;
+  if(isAdmin)$("rosterInput").value=rosterNames.join(", ");
   $("setDlg").showModal();
 });
 $("setSave").addEventListener("click",function(){
   var cur=$("curInput").value.trim()||"UGX";
   var team=$("teamInput").value.split(",").map(function(s){return s.trim()}).filter(Boolean);
   var jobs=[fs.doc("nh_meta/settings").set({currency:cur,team:team})];
-  if(user&&user.email===OWNER_EMAIL){
-    var emails=$("allowInput").value.split(",").map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
-    jobs.push(fs.doc("nh_meta/allowlist").set({emails:emails}));
+  if(isAdmin){
+    var names=$("rosterInput").value.split(",").map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
+    jobs.push(fs.doc("nh_meta/roster").set({names:names}));
   }
   Promise.all(jobs).then(function(){$("setDlg").close();toast("Settings saved")},function(){toast("Couldn’t save settings")});
 });

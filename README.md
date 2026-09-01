@@ -8,10 +8,15 @@ Hosted on GitHub Pages; live data sync via Firebase Firestore
 
 ## Access
 
-The page is public, but the data is not: opening the logbook requires
-Google sign-in, and Firestore security rules only admit
-the owner account plus the Google emails the owner lists in
-Settings → "Allowed Google emails" (stored in `nh_meta/allowlist`).
+The page is public, but the data is not. Two ways in:
+
+- **Admin** — Google sign-in with the admin account
+  (`info.creedmotions@gmail.com`).
+- **Team** — type a login name (e.g. `mukama`) on the front page. The name
+  must be on the roster the admin manages in Settings → "Team login names"
+  (stored in `nh_meta/roster`); it signs the device in anonymously and
+  claims the name in `nh_members/{uid}`. Firestore rules re-check the
+  roster on every read/write, so removing a name revokes access instantly.
 
 ## Where things live
 
@@ -27,4 +32,5 @@ Settings → "Allowed Google emails" (stored in `nh_meta/allowlist`).
 | `nh_payments/{id}`    | money received (amount, kind, received by, note)      |
 | `nh_expenses/{id}`    | money spent (item, amount, momo charge, number sent to, paid by) |
 | `nh_meta/settings`    | currency label, team member names                     |
-| `nh_meta/allowlist`   | Google emails allowed in (owner-editable only)        |
+| `nh_meta/roster`      | login names allowed in (admin-editable only)          |
+| `nh_members/{uid}`    | a device's claimed login name                         |
