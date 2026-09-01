@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>How to use the Napster Homes Logbook</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F5F7F3; --surface:#FFFFFF; --surface-2:#EDF1EA; --line:#D8DFD4;
+  --ink:#252B27; --ink-2:#5A655D; --ink-3:#8B958D;
+  --accent:#2F6E58; --accent-soft:#DEEBE3; --accent-ink:#1E4A3B;
+  --booked:#D2801E; --booked-soft:#F8E7D0; --booked-ink:#8A5510;
+  --bhold:#C9A227; --bhold-soft:#F6EEC9; --bhold-ink:#7D651A;
+  --out:#AE5230; --out-soft:#F4E2D9; --out-ink:#7E3A20;
+  --warn:#B3452C;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#161B18; --surface:#1F2621; --surface-2:#28312B; --line:#38423B;
+    --ink:#E8ECE8; --ink-2:#A9B4AB; --ink-3:#77826F;
+    --accent:#5CA98D; --accent-soft:#24382F; --accent-ink:#9FD4BD;
+    --booked:#E2984A; --booked-soft:#3D2F1B; --booked-ink:#F0C186;
+    --bhold:#DDC353; --bhold-soft:#3A351A; --bhold-ink:#EBD98A;
+    --out:#D07A54; --out-soft:#3D2A21; --out-ink:#E8A783;
+    --warn:#E07A5F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#161B18; --surface:#1F2621; --surface-2:#28312B; --line:#38423B;
+  --ink:#E8ECE8; --ink-2:#A9B4AB; --ink-3:#77826F;
+  --accent:#5CA98D; --accent-soft:#24382F; --accent-ink:#9FD4BD;
+  --booked:#E2984A; --booked-soft:#3D2F1B; --booked-ink:#F0C186;
+  --bhold:#DDC353; --bhold-soft:#3A351A; --bhold-ink:#EBD98A;
+  --out:#D07A54; --out-soft:#3D2A21; --out-ink:#E8A783;
+  --warn:#E07A5F;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font:400 15.5px/1.65 "Instrument Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:28px 18px 90px}
+.wordmark{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(28px,5vw,40px);letter-spacing:-.01em}
+.wordmark em{font-style:normal;color:var(--accent)}
+.lede{color:var(--ink-2);margin:6px 0 22px}
+h2{font-family:"Bricolage Grotesque",sans-serif;font-size:21px;margin:34px 0 8px;text-wrap:balance}
+h3{font-size:15px;margin:18px 0 4px}
+p{margin:8px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:12px 0}
+.mono{font-family:"Spline Sans Mono",ui-monospace,monospace}
+.box{display:inline-block;border:1px solid var(--line);background:var(--surface-2);border-radius:7px;padding:1px 8px;font-size:13.5px;font-weight:600;white-space:nowrap}
+.pill{display:inline-block;font-size:12px;font-weight:600;border-radius:5px;padding:1px 7px;white-space:nowrap}
+.p-in{background:var(--accent-soft);color:var(--accent-ink)}
+.p-out{background:var(--out-soft);color:var(--out-ink)}
+.p-bpaid{background:var(--booked);color:#fff}
+.p-bhold{background:var(--bhold-soft);color:var(--bhold-ink);border:1px solid var(--bhold)}
+.p-needs{box-shadow:inset 0 0 0 2px var(--warn);border-radius:5px;padding:1px 7px;font-size:12px;font-weight:600}
+.pchip{display:inline-flex;width:16px;height:16px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;vertical-align:-2px}
+.btn-demo{display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:4px 14px;font-weight:600;font-size:13.5px}
+ul{margin:6px 0;padding-left:22px}
+li{margin:5px 0}
+.tip{border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);border-radius:0 10px 10px 0;padding:10px 14px;margin:14px 0;font-size:14px}
+.warnbox{border-left:3px solid var(--warn);background:var(--out-soft);color:var(--out-ink);border-radius:0 10px 10px 0;padding:10px 14px;margin:14px 0;font-size:14px}
+a{color:var(--accent);font-weight:600}
+.open-cta{display:block;text-align:center;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-weight:700;font-size:16px;text-decoration:none;margin:26px 0 6px}
+.num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--ground);font-size:12.5px;font-weight:700;align-items:center;justify-content:center;margin-right:8px;vertical-align:-4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="wordmark">Napster <em>Homes</em></div>
+  <p class="lede">How to use our Airbnb logbook — what every box means, in 3 minutes.</p>
+
+  <div class="tip">The logbook is our shared diary for the house. Whatever you type is saved instantly and everyone sees it live — phones, computers, everywhere. <b>Every day must have something written on it</b>, even if the house was empty.</p></div>
+
+  <h2>1 · Logging in</h2>
+  <div class="card">
+    <p><span class="num">1</span>Open the logbook link.</p>
+    <p><span class="num">2</span>In the <b>Team name</b> box, type <em>your own</em> login name in small letters — <span class="mono box">mukama</span>, <span class="mono box">ahereza</span> or <span class="mono box">swimming</span>.</p>
+    <p><span class="num">3</span>Tap <span class="btn-demo">Enter the logbook</span>. Your phone remembers you — next time it opens straight into the calendar.</p>
+    <p style="color:var(--ink-2);font-size:14px">Ignore "Admin sign-in with Google" — that button is only for the boss.</p>
+  </div>
+
+  <h2>2 · Reading the calendar</h2>
+  <div class="card">
+    <p>Each small square is one day. The colours tell the story at a glance:</p>
+    <ul>
+      <li><span class="pill p-in">↓ 14:00 John</span> — a guest <b>checked in</b> (arrow down, time, name).</li>
+      <li><span class="pill p-out">↑ 10:00 John</span> — a guest <b>checked out</b> (arrow up, time they left).</li>
+      <li><span class="pill p-bpaid">Booked ✓ 50k</span> — day is booked <b>and the booking fee was paid</b> (orange).</li>
+      <li><span class="pill p-bhold">Booked · fee not paid</span> — booked, but <b>money not yet received</b> (yellow).</li>
+      <li><span class="p-needs">red outline</span> — a past day with <b>nothing written</b>. Someone must fill it.</li>
+      <li><span class="pchip" style="background:#5B6ECF">M</span> <span class="pchip" style="background:#B4552D">A</span> <span class="pchip" style="background:#2C7A8C">S</span> — small letter badges show <b>who</b> handled or recorded each thing.</li>
+      <li>✏️ next to a date — that day's info was <b>edited</b> after it was first saved.</li>
+      <li>Green <b>+120k</b> / red <b>−35k</b> at the bottom of a day — money in and money spent that day.</li>
+    </ul>
+    <p>Use the <span class="box">‹</span> <span class="box">›</span> arrows to move between months, and <span class="box">Today</span> to jump back.</p>
+  </div>
+
+  <h2>3 · Recording a day — tap the day, then use these boxes</h2>
+
+  <div class="card">
+    <h3>First, tap the buttons that match what happened:</h3>
+    <ul>
+      <li><span class="box">Check-in</span> — a guest arrived today.</li>
+      <li><span class="box">Check-out</span> — a guest left today.</li>
+      <li><span class="box">Guest staying</span> — guest is sleeping over (no arrival or departure today).</li>
+      <li><span class="box">Booked ahead</span> — someone reserved this date for the future.</li>
+    </ul>
+    <p style="color:var(--ink-2);font-size:14px">You can tap more than one — e.g. one guest leaves in the morning and another arrives in the evening.</p>
+  </div>
+
+  <div class="card">
+    <h3>Check-in boxes</h3>
+    <ul>
+      <li><b>Guest name</b> — who arrived, e.g. <i>John K.</i></li>
+      <li><b>Time entered</b> — the time the guest came in.</li>
+      <li><b>Handled by</b> — who received the guest (your name, or whoever did it).</li>
+    </ul>
+    <h3>Check-out boxes</h3>
+    <ul>
+      <li><b>Guest name</b> — who left.</li>
+      <li><b>Time left</b> — the time they went.</li>
+      <li><b>Handled by</b> — who saw them off.</li>
+    </ul>
+    <h3>Booked ahead boxes</h3>
+    <ul>
+      <li><b>Guest name</b> — who booked.</li>
+      <li><b>Booking fee paid</b> — the money already received for the booking. <b>Enter the amount → the day turns orange.</b> Leave it 0 → the day stays yellow until the fee comes in.</li>
+      <li><b>Booked through</b> — who took the booking.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>"What happened this day" box</h3>
+    <p>A short note about the house — <i>"Cleaning done", "Bought gas", "House empty all day"</i>. <b>If the day was quiet, this box is how you clear the red outline</b> — never leave a past day blank.</p>
+  </div>
+
+  <div class="card">
+    <h3>"Money received" boxes</h3>
+    <ul>
+      <li><b>Amount</b> — how much came in.</li>
+      <li><b>For</b> — choose: Stay payment, Booking fee, Upgrade / extra, or Other.</li>
+      <li><b>Received by</b> — who took the money.</li>
+      <li><b>Note</b> — optional extra detail.</li>
+    </ul>
+    <p>Then tap <span class="box">+ Add money received</span>. Add each payment separately.</p>
+  </div>
+
+  <div class="card">
+    <h3>"Money spent" boxes</h3>
+    <ul>
+      <li><b>Item</b> — what was bought or paid for: <i>cleaning, soap, tissue, gas…</i></li>
+      <li><b>Amount</b> — the price.</li>
+      <li><b>Mobile money charge</b> — the sending fee, if you paid by momo (put 0 if none).</li>
+      <li><b>Number sent to</b> — the phone number the money went to. <b>Always fill this</b> — the weekly report shows how much went to each number.</li>
+      <li><b>Paid by</b> — who spent the money.</li>
+    </ul>
+    <p>Then tap <span class="box">+ Add money spent</span>. One entry per item is best.</p>
+  </div>
+
+  <div class="card">
+    <h3>Finish with <span class="btn-demo">Save day</span></h3>
+    <p>Payments and expenses save the moment you add them; <b>Save day</b> saves the check-in/out, booking and note. If you tap ✕ next to an entry, it is deleted for everyone. If you change a day that was already saved, it gets an ✏️ mark showing it was edited and by whom.</p>
+  </div>
+
+  <h2>4 · The panel on the right</h2>
+  <div class="card">
+    <ul>
+      <li><b>This week</b> — money in, money out and the balance for the current week, plus <b>"Money sent to"</b>: every phone number money went to this week and how much.</li>
+      <li><b>Weekly totals</b> — the same, week by week for the whole month.</li>
+      <li><b>Month grand total</b> — money in, money out and profit for the month.</li>
+    </ul>
+    <p style="color:var(--ink-2);font-size:14px">All of this fills itself from what you record — you never calculate anything.</p>
+  </div>
+
+  <h2>5 · The Telegram bot</h2>
+  <div class="card">
+    <ul>
+      <li><b>8:00 PM</b> — if nobody recorded anything that day, the bot reminds the group. Record early and it stays quiet.</li>
+      <li><b>10:00 PM</b> — the bot posts the day's summary, including a list of <b>what each person put</b> — so it shows if only one of us is doing the recording 😅.</li>
+      <li>Send <span class="mono box">/summary</span> in the group anytime to see today's summary immediately.</li>
+    </ul>
+  </div>
+
+  <div class="warnbox"><b>The three rules:</b> ① Record things the same day they happen. ② Never leave a red-outlined day — write a note even if it's just "house empty". ③ Always put the number you sent money to.</div>
+
+  <a class="open-cta" href="https://creedproductions.github.io/napster-homes/">Open the logbook →</a>
+</div>
+</body>
+</html>
