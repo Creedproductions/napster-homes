@@ -378,6 +378,13 @@ function setRecorder(n){recorder=n;try{localStorage.setItem("nh-recorder",n)}cat
 function gateError(html){var e=$("gateErr");e.innerHTML=html;e.classList.add("show")}
 function showGate(){$("app").hidden=true;$("gate").hidden=false}
 function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
+function bestEmail(u){
+  if(!u)return "";
+  if(u.email)return u.email.trim().toLowerCase();
+  var pd=u.providerData||[];
+  for(var i=0;i<pd.length;i++){if(pd[i]&&pd[i].email)return pd[i].email.trim().toLowerCase()}
+  return "";
+}
 
 $("gSignIn").addEventListener("click",function(){
   $("gateErr").classList.remove("show");
@@ -440,15 +447,12 @@ auth.onAuthStateChanged(function(u){
     },function(){ if(pendingName){claimName(u,pendingName)} else showGate() });
     return;
   }
-  if((u.email||"").toLowerCase()===OWNER_EMAIL){
-    isAdmin=true;
-    if(!recorder)setRecorder((u.displayName||"Admin").split(" ")[0]);
-    seedIfEmpty();
-    startListeners();
-  }else{
-    auth.signOut();
-    gateError("<span class='mono small'>"+esc(u.email||"")+"</span> isn’t the admin account.<br>Use your team name above instead, or sign in with the admin Google account.");
-  }
+  // Google sign-in: let the Firestore security rules decide whether this
+  // account is the admin — the client only uses the email for display.
+  isAdmin=bestEmail(u)===OWNER_EMAIL;
+  if(!recorder)setRecorder((u.displayName||"Admin").split(" ")[0]);
+  if(isAdmin)seedIfEmpty();
+  startListeners();
 });
 
 // First admin visit: create the roster and settings so teammates can enter.
@@ -465,7 +469,7 @@ function accessDenied(){
   unsubs.forEach(function(f){try{f()}catch(e){}});unsubs=[];
   showGate();
   if(user&&user.isAnonymous)gateError("This device’s access isn’t active any more — the name may have been removed from the team list. Enter a valid team name to continue.");
-  else gateError("Signed in as <span class='mono small'>"+esc(user&&user.email||"")+"</span> — this account can’t open the logbook. If the rules were just updated in Firebase, wait a minute and try again.");
+  else gateError("Signed in as <span class='mono small'>"+esc(bestEmail(user)||"(no email visible)")+"</span> — the database refused this account.<br>Make sure the Firestore security rules are published for project webaura-ba777, and that this is the admin account.");
 }
 
 /* ── live data ────────────────────────────────────────────────── */
