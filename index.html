@@ -143,7 +143,7 @@ label.f{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-b
 .addbtn.alt{background:var(--surface-2);color:var(--ink)}
 .savebar{display:flex;gap:10px;margin-top:14px}
 .savebar .addbtn{flex:1}
-.meta{color:var(--ink-3);font-size:12px;margin-top:10px}
+.meta{color:var(--ink-3);font-size:12px;margin-top:10px;white-space:pre-line}
 .close-x{position:absolute;top:12px;right:14px;border:none;background:var(--surface-2);border-radius:8px;width:32px;height:32px;font-size:16px}
 dialog{border:none;border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow);padding:20px;max-width:400px;width:92vw}
 dialog::backdrop{background:rgba(20,25,22,.5)}
@@ -330,16 +330,13 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
   <h3 style="margin:0 0 12px;font-family:'Bricolage Grotesque',sans-serif">Settings</h3>
   <label class="f" for="curInput">Currency label</label>
   <input id="curInput" placeholder="UGX">
-  <div style="height:10px"></div>
-  <label class="f" for="teamInput">Team members (comma-separated)</label>
-  <input id="teamInput" placeholder="Mike, Sarah, Brian">
   <div id="ownerBox" hidden>
     <div style="height:10px"></div>
-    <label class="f" for="rosterInput">Team login names (admin only, comma-separated)</label>
-    <input id="rosterInput" class="mono" placeholder="surname1, surname2, surname3">
-    <p style="margin:6px 0 0;color:var(--ink-3);font-size:12px">These are the names people type to enter the logbook. Removing a name locks that person out immediately.</p>
+    <label class="f" for="rosterInput">Staff (comma-separated login names)</label>
+    <input id="rosterInput" class="mono" placeholder="mukama, ahereza, swimming">
+    <p style="margin:6px 0 0;color:var(--ink-3);font-size:12px">Saving syncs the staff list for everyone: these are the names staff type to log in, and each gets their initial badge (M, A, S…). Removing a name locks that person out immediately.</p>
   </div>
-  <div class="savebar"><button class="addbtn" id="setSave">Save settings</button></div>
+  <div class="savebar"><button class="addbtn" id="setSave">Save &amp; sync</button></div>
 </dialog>
 
 <datalist id="teamList"></datalist>
@@ -352,7 +349,7 @@ dialog::backdrop{background:rgba(20,25,22,.5)}
 (function(){
 "use strict";
 var OWNER_EMAIL="info.creedmotions@gmail.com";
-var DEFAULT_ROSTER=["mukama","ahereza","swimming","willy"];
+var DEFAULT_ROSTER=["mukama","ahereza","swimming"];
 firebase.initializeApp({
   apiKey:"AIzaSyAn2Ryt1fH55zNj6tYKjBG0Ts5V4YiosfU",
   authDomain:"webaura-ba777.firebaseapp.com",
@@ -364,7 +361,7 @@ firebase.initializeApp({
 var auth=firebase.auth(), fs=firebase.firestore();
 var user=null, unsubs=[], isAdmin=false, memberName="", pendingName=null;
 var days={}, payments={}, expenses={};
-var settings={currency:"UGX", team:["Mukama","Ahereza","Swimming","Willy"]};
+var settings={currency:"UGX", team:["Mukama","Ahereza","Swimming"]};
 var rosterNames=[];
 var view=new Date(); view.setDate(1);
 var openDate=null;
@@ -567,7 +564,7 @@ function render(){
       Object.keys(expenses).forEach(function(id){if(expenses[id].date===k)dayExp+=(+expenses[id].amount||0)+(+expenses[id].fee||0)});
       if(d.booking&&d.booking.fee)dayPay+=(+d.booking.fee||0);
       if(!hasAnything&&dayPay===0&&dayExp===0&&inMonth&&k<tk)cell.classList.add("needs");
-      var h='<span class="dnum">'+cur.getDate()+'</span>';
+      var h='<span class="dnum">'+cur.getDate()+(d.edits&&d.edits.length?' <span title="Info was edited '+d.edits.length+'×">✏️</span>':'')+'</span>';
       if(d.checkIn)h+='<span class="pill p-in">↓ '+esc(d.checkIn.time||"")+' '+esc(d.checkIn.guest||"guest")+' '+personChip(d.checkIn.by)+'</span>';
       if(d.checkOut)h+='<span class="pill p-out">↑ '+esc(d.checkOut.time||"")+' '+esc(d.checkOut.guest||"guest")+' '+personChip(d.checkOut.by)+'</span>';
       if(d.occupied&&!d.checkIn&&!d.checkOut)h+='<span class="pill p-occ">Guest staying</span>';
@@ -646,7 +643,12 @@ function openSheet(k){
   $("dayNote").value=d.note||"";
   ["payAmt","payNote","expItem","expAmt","expFee","expTo"].forEach(function(id){$(id).value=""});
   $("payBy").value=recorder;$("expBy").value=recorder;
-  $("shMeta").textContent=d.updatedBy?("Last updated by "+d.updatedBy+(d.updatedAt?(" · "+new Date(d.updatedAt).toLocaleString()):"")):"";
+  var meta=d.updatedBy?("Last updated by "+d.updatedBy+(d.updatedAt?(" · "+new Date(d.updatedAt).toLocaleString()):"")):"";
+  if(d.edits&&d.edits.length){
+    var le=d.edits[d.edits.length-1];
+    meta="✏️ Edited "+d.edits.length+"× — last by "+(le.by||"?")+(le.at?(" · "+new Date(le.at).toLocaleString()):"")+(meta?("\n"+meta):"");
+  }
+  $("shMeta").textContent=meta;
   renderEntryLists();
   $("scrim").classList.add("show");$("sheet").classList.add("show");
 }
@@ -694,6 +696,11 @@ $("expAdd").addEventListener("click",function(){
 $("saveDay").addEventListener("click",function(){
   if(needName())return;
   var body={note:$("dayNote").value.trim(),occupied:$("tgOcc").getAttribute("aria-pressed")==="true",updatedBy:recorder,updatedAt:new Date().toISOString()};
+  // Saving over a day that already had info = an edit; keep a visible trail.
+  var prev=days[openDate];
+  if(prev&&(prev.checkIn||prev.checkOut||prev.occupied||prev.booking||String(prev.note||"").trim())){
+    body.edits=(prev.edits||[]).slice(-4).concat([{by:recorder,at:new Date().toISOString()}]);
+  }else if(prev&&prev.edits){body.edits=prev.edits}
   if($("tgIn").getAttribute("aria-pressed")==="true")body.checkIn={guest:$("inGuest").value.trim(),time:$("inTime").value,by:$("inBy").value.trim()};
   if($("tgOut").getAttribute("aria-pressed")==="true")body.checkOut={guest:$("outGuest").value.trim(),time:$("outTime").value,by:$("outBy").value.trim()};
   if($("tgBook").getAttribute("aria-pressed")==="true")body.booking={guest:$("bkGuest").value.trim(),fee:parseFloat($("bkFee").value)||0,by:$("bkBy").value.trim()};
@@ -709,20 +716,25 @@ $("whoBtn").addEventListener("click",function(){$("whoInput").value=recorder;$("
 $("whoSave").addEventListener("click",function(){var v=$("whoInput").value.trim();if(!v){toast("Enter your name");return}setRecorder(v);$("whoDlg").close();toast("You are recording as "+v)});
 $("setBtn").addEventListener("click",function(){
   $("curInput").value=settings.currency;
-  $("teamInput").value=(settings.team||[]).join(", ");
   $("ownerBox").hidden=!isAdmin;
-  if(isAdmin)$("rosterInput").value=rosterNames.join(", ");
+  if(isAdmin)$("rosterInput").value=(rosterNames.length?rosterNames:DEFAULT_ROSTER).join(", ");
   $("setDlg").showModal();
 });
 $("setSave").addEventListener("click",function(){
   var cur=$("curInput").value.trim()||"UGX";
-  var team=$("teamInput").value.split(",").map(function(s){return s.trim()}).filter(Boolean);
-  var jobs=[fs.doc("nh_meta/settings").set({currency:cur,team:team})];
+  var jobs;
   if(isAdmin){
+    // One save syncs staff everywhere: login names + display names + badges.
     var names=$("rosterInput").value.split(",").map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
-    jobs.push(fs.doc("nh_meta/roster").set({names:names}));
+    if(!names.length){toast("Add at least one staff name");return}
+    jobs=[
+      fs.doc("nh_meta/roster").set({names:names}),
+      fs.doc("nh_meta/settings").set({currency:cur,team:names.map(cap)})
+    ];
+  }else{
+    jobs=[fs.doc("nh_meta/settings").set({currency:cur,team:settings.team||[]})];
   }
-  Promise.all(jobs).then(function(){$("setDlg").close();toast("Settings saved")},function(){toast("Couldn’t save settings")});
+  Promise.all(jobs).then(function(){$("setDlg").close();toast(isAdmin?"Saved — staff synced for everyone":"Settings saved")},function(){toast("Couldn’t save settings")});
 });
 function applySettings(){
   var dl=$("teamList");dl.innerHTML=(settings.team||[]).map(function(t){return '<option value="'+esc(t)+'">'}).join("");
