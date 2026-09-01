@@ -447,12 +447,23 @@ auth.onAuthStateChanged(function(u){
     },function(){ if(pendingName){claimName(u,pendingName)} else showGate() });
     return;
   }
-  // Google sign-in: let the Firestore security rules decide whether this
-  // account is the admin — the client only uses the email for display.
-  isAdmin=bestEmail(u)===OWNER_EMAIL;
-  if(!recorder)setRecorder((u.displayName||"Admin").split(" ")[0]);
-  if(isAdmin)seedIfEmpty();
-  startListeners();
+  // Google sign-in: the first Google account to sign in claims the admin
+  // seat (nh_meta/admin) by uid; afterwards only that uid (or the admin
+  // email) is admin. The rules enforce all of this — the client just
+  // claims and asks.
+  var adminRef=fs.doc("nh_meta/admin");
+  adminRef.get().then(function(s){
+    if(!s.exists){
+      return adminRef.set({uid:u.uid,email:bestEmail(u),at:new Date().toISOString()})
+        .then(function(){isAdmin=true},function(){isAdmin=false});
+    }
+    isAdmin=(s.data().uid===u.uid)||(bestEmail(u)===OWNER_EMAIL);
+  },function(){isAdmin=bestEmail(u)===OWNER_EMAIL})
+  .then(function(){
+    if(!recorder)setRecorder((u.displayName||"Admin").split(" ")[0]);
+    if(isAdmin)seedIfEmpty();
+    startListeners();
+  });
 });
 
 // First admin visit: create the roster and settings so teammates can enter.
@@ -469,7 +480,7 @@ function accessDenied(){
   unsubs.forEach(function(f){try{f()}catch(e){}});unsubs=[];
   showGate();
   if(user&&user.isAnonymous)gateError("This device’s access isn’t active any more — the name may have been removed from the team list. Enter a valid team name to continue.");
-  else gateError("Signed in as <span class='mono small'>"+esc(bestEmail(user)||"(no email visible)")+"</span> — the database refused this account.<br>Make sure the Firestore security rules are published for project webaura-ba777, and that this is the admin account.");
+  else gateError("Signed in as <span class='mono small'>"+esc(bestEmail(user)||"(no email visible)")+"</span> — the database refused this account.<br>If this is the admin: make sure the LATEST Firestore security rules are published for project webaura-ba777, then sign in again. Otherwise use your team name above.");
 }
 
 /* ── live data ────────────────────────────────────────────────── */
